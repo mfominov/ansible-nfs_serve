@@ -1,0 +1,21 @@
+---
+
+type: "server"
+nfs_share_directory: "/u01/tempuser"
+share_opts: "rw,sync,no_root_squash"
+network_interface: "ens160"
+nfs_server_ports:
+  - 111
+  - 54302
+  - 20048
+  - 2049
+  - 46666
+  - 42955
+  - 875
+nfs_server_service:
+  - nfs
+  - mountd
+  - rpc-bind
+mount_opts: "rw,sync"
+mount_fstype: "nfs"
+mount_point: "/u01/tempuser"

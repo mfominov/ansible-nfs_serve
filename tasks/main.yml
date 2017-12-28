@@ -1,0 +1,74 @@
+---
+
+- name: Install nfs
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+   - nfs-utils
+#   - nfs-utils-lib
+
+- name: Start nfs service
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  with_items:
+    - rpcbind
+    - nfs-server
+    - nfs-lock
+    - nfs-idmap
+
+- block:
+
+  - name: Create mount point directory
+    file:
+      path: "{{ mount_point }}"
+      state: directory
+
+  - name: Mount nfs share
+    mount:
+      src: "{{ hostvars[groups['nfs_share'][0]]['ansible_default_ipv4']['address'] }}:{{ nfs_share_directory }}"
+      path: "{{ mount_point }}"
+      fstype: "{{ mount_fstype }}"
+      opts: "{{ mount_opts }}"
+      state: mounted
+
+  when: type == "client"
+
+- block:
+
+  - name: Create share directory
+    file:
+      path: "{{ nfs_share_directory }}"
+      state: directory
+
+  - name: Edit firewalld for nfs server
+    firewalld:
+      port: "{{ item }}/tcp"
+      permanent: true
+      state: enabled
+    notify: restart firewalld
+    with_items:
+      - "{{ nfs_server_ports }}"
+
+  - name: Add nfs server services to firewalld
+    firewalld:
+      service: "{{ item }}"
+      permanent: true
+      state: enabled
+    notify: restart firewalld
+    with_items:
+      - "{{ nfs_server_service }}"
+
+  - name: Create nfs share
+    lineinfile: 
+      dest: /etc/exports
+      line: "{{ nfs_share_directory }} {{ hostvars[inventory_hostname]['ansible_'+network_interface]['ipv4']['address'] }} ({{ share_opts }})"
+      state: present
+
+  - name: Relaod nfs share
+    command: exportfs -a
+
+  when: type == "server"
